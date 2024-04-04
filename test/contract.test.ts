@@ -80,13 +80,16 @@ describe("Xqtum Contract", function () {
       await qtumContract.connect(user2).approve(xqtumContract.getAddress(), stakeAmount)
       await xqtumContract.connect(user2).stake(stakeAmount, 2)
 
-      console.log(await xqtumContract.stakingList(user1.address))
-      console.log(await xqtumContract.stakingList(user2.address))
       const timeControl = 86400 * 20
       await time.increase(timeControl)
 
-      console.log(await xqtumContract.calcReward(user1.address))
-      console.log(await xqtumContract.calcReward(user2.address))
+      const claimableData1 = await xqtumContract.calcReward(user1.address)
+      const claimableData2 = await xqtumContract.calcReward(user2.address)
+
+      const tx1 = await xqtumContract.connect(user1).distributeReward()
+      const tx2 = await xqtumContract.connect(user2).distributeReward()
+
+      
     })
   });
 

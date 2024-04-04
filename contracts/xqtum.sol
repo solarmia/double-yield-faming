@@ -87,16 +87,21 @@ contract Xqtum is ERC20, Ownable {
             block.timestamp >
             stakingList[_user].duration + stakingList[_user].start
         ) {
-            _qtum = (stakingList[_user].amount / 100) * (100 - reedemFee);
-            _xqtum = (stakingList[_user].amount / 100) * (100 - reedemFee);
+            _qtum = (stakingList[_user].amount * (100 - reedemFee)) / 100;
+            _xqtum = (stakingList[_user].amount * (100 - reedemFee)) / 100;
         } else {
             _qtum =
-                (((stakingList[_user].amount / stakingList[_user].duration) *
-                    (block.timestamp - stakingList[_user].start)) / 100) *
-                (100 - reedemFee);
-            _xqtum = (((stakingList[_user].amount / stakingList[_user].duration) *
-                    (block.timestamp - stakingList[_user].start)) / 100) *
-                (100 - reedemFee - penaltyFee);
+                (stakingList[_user].amount *
+                    (block.timestamp - stakingList[_user].start) *
+                    (100 - reedemFee)) /
+                stakingList[_user].duration /
+                100;
+            _xqtum =
+                (stakingList[_user].amount *
+                    (block.timestamp - stakingList[_user].start) *
+                    (100 - reedemFee - penaltyFee)) /
+                stakingList[_user].duration /
+                100;
         }
     }
 }
