@@ -13,3 +13,9 @@ export const xqtumData = {
     reedemFee: 2n,
     penaltyFee: 2n
 }
+export const ninjaData = {
+    tokenName: 'TEST NINJA',
+    tokenSymbol: 'NINJ',
+    price: 5n,
+    baseTokenURI:''
+}

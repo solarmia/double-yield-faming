@@ -5,11 +5,13 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 // For debugging
 import "hardhat/console.sol";
 
 // Main contract definition
-contract Xqtum is ERC20, Ownable {
+contract Xqtum is ERC20, Ownable, ReentrancyGuard {
     // ---------------- Events definitions ----------------
 
     event UserStakedEvent(
@@ -38,6 +40,7 @@ contract Xqtum is ERC20, Ownable {
     address public immutable qtum;
     uint256 public immutable reedemFee;
     uint256 public immutable penaltyFee;
+
     uint256 private duration1 = 15 days;
     uint256 private duration2 = 30 days;
 
@@ -71,10 +74,11 @@ contract Xqtum is ERC20, Ownable {
         emit UserStakedEvent(user, start, duration, _amount);
     }
 
-    function distributeReward() external {
+    function distributeReward() external nonReentrant {
         (uint256 qtumAmount, uint256 xqtumAmount) = calcReward(msg.sender);
         IERC20(qtum).transfer(msg.sender, qtumAmount);
-        transfer(msg.sender, xqtumAmount);
+        _mint(msg.sender, xqtumAmount);
+        delete stakingList[msg.sender];
         emit UserClaimEvent(msg.sender, qtumAmount, xqtumAmount);
     }
 
@@ -104,4 +108,6 @@ contract Xqtum is ERC20, Ownable {
                 100;
         }
     }
+
+    // ---------------- Owner functions ----------------
 }
