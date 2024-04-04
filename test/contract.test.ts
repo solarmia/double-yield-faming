@@ -34,12 +34,12 @@ describe("Qtum Contract", function () {
 
   describe("Buy", async function () {
     it("Should buy exact amount", async function () {
-      const user = signerList[1]
-      const buyAmount = 1000000000000000n
+      const user1 = signerList[1]
+      const buyAmount = 100000000000000000n
       const count = buyAmount / price
-      const tx = qtumContract.connect(user).buy({ value: buyAmount })
-      expect(tx).to.emit(qtumContract, 'UserBuyQtum').withArgs(user.address, count)
-      expect(tx).to.changeTokenBalance(qtumContract, user, count)
+      const tx = qtumContract.connect(user1).buy({ value: buyAmount })
+      expect(tx).to.emit(qtumContract, 'UserBuyQtum').withArgs(user1.address, count)
+      expect(tx).to.changeTokenBalance(qtumContract, user1, count)
     });
   });
 
@@ -60,6 +60,34 @@ describe("Xqtum Contract", function () {
       expect(await xqtumContract.owner()).to.equal(signerList[0].address);
       expect(await xqtumContract.qtum()).to.equal(await qtumContract.getAddress())
     });
+
+    it("Should stake exact amount", async function () {
+      const user1 = signerList[1]
+      const stakeAmount = 100n
+
+      await qtumContract.connect(user1).approve(xqtumContract.getAddress(), stakeAmount)
+      const tx = await xqtumContract.connect(user1).stake(stakeAmount, 1)
+      expect(tx).to.changeTokenBalances(qtumContract, [xqtumContract.getAddress(), user1.address], [stakeAmount, -stakeAmount])
+    })
+
+    it("Should claim exact amount", async function () {
+      const user1 = signerList[1]
+      const user2 = signerList[2]
+      const buyAmount = 5000000000000000000n
+      await qtumContract.connect(user2).buy({ value: buyAmount })
+
+      const stakeAmount = 2000n
+      await qtumContract.connect(user2).approve(xqtumContract.getAddress(), stakeAmount)
+      await xqtumContract.connect(user2).stake(stakeAmount, 2)
+
+      console.log(await xqtumContract.stakingList(user1.address))
+      console.log(await xqtumContract.stakingList(user2.address))
+      const timeControl = 86400 * 20
+      await time.increase(timeControl)
+
+      console.log(await xqtumContract.calcReward(user1.address))
+      console.log(await xqtumContract.calcReward(user2.address))
+    })
   });
 
 });

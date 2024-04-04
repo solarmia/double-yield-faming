@@ -12,7 +12,7 @@ import "hardhat/console.sol";
 contract Qtum is ERC20, Ownable {
     // ---------------- Events definitions ----------------
 
-    event UserBuyQtum(
+    event UserBuyQtumEvent(
         address user,
         uint256 amount
     );
@@ -36,6 +36,6 @@ contract Qtum is ERC20, Ownable {
         uint256 count = msg.value / tokenPrice;
         address user = msg.sender;
         _mint(user, count);
-        emit UserBuyQtum(user, count);
+        emit UserBuyQtumEvent(user, count);
     }
 }
