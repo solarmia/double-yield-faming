@@ -5,7 +5,6 @@ export const apiKey = process.env.ETHER_SCAN_API_KEY!
 export const qtumData = {
     tokenName: 'TEST QTUM',
     tokenSymbol: 'QTUM',
-    price: 1000000000000000n
 }
 export const xqtumData = {
     tokenName: 'TEST XQTUM',
