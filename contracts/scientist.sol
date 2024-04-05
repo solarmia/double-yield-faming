@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-// Import OpenZeppelin contracts for ERC20, Ownable, ReentrancyGuard
+// Import OpenZeppelin contracts for ERC721Enumerable, Ownable, IERC20, ReentrancyGuard
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 // For debugging
 import "hardhat/console.sol";
 
@@ -61,7 +62,7 @@ contract Scientist is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     // ---------------- view functions ----------------
 
-    function checkScientist(address _user) public view returns (bool) {
+    function check(address _user) public view returns (bool) {
         if (!whiteList[_user]) return false;
         if (balanceOf(_user) == 0) return false;
         return true;

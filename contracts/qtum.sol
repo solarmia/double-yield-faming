@@ -5,17 +5,15 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 // For debugging
 import "hardhat/console.sol";
 
 // Main contract definition
-contract Qtum is ERC20, Ownable {
+contract Qtum is ERC20, Ownable, ReentrancyGuard {
     // ---------------- Events definitions ----------------
 
-    event UserBuyQtumEvent(
-        address user,
-        uint256 amount
-    );
+    event UserBuyQtumEvent(address user, uint256 amount);
 
     // ---------------- Variables ----------------
 
@@ -25,17 +23,12 @@ contract Qtum is ERC20, Ownable {
 
     constructor(
         string memory _tokenName,
-        string memory _tokenSymbol,
-        uint256 _tokenPrice
-    ) ERC20(_tokenName, _tokenSymbol) Ownable(_msgSender()) {
-        tokenPrice = _tokenPrice;
-    }
+        string memory _tokenSymbol
+    ) ERC20(_tokenName, _tokenSymbol) Ownable(_msgSender()) {}
 
-    // ---------------- User functions ----------------
-    function buy() external payable {
-        uint256 count = msg.value / tokenPrice;
-        address user = msg.sender;
-        _mint(user, count);
-        emit UserBuyQtumEvent(user, count);
+    // ---------------- Owner functions ----------------
+
+    function mintQtum(uint256 _amount) external nonReentrant onlyOwner {
+        _mint(msg.sender, _amount);
     }
 }

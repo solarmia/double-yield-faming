@@ -5,7 +5,6 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // For debugging
 import "hardhat/console.sol";
@@ -14,18 +13,33 @@ import "hardhat/console.sol";
 contract Xqtum is ERC20, Ownable, ReentrancyGuard {
     // ---------------- Events definitions ----------------
 
-    event UserStakedEvent(
+    event UserStakedQtumEvent(
         address user,
         uint256 start,
         uint256 duration,
-        uint256 amount
+        uint256 qtumAmt,
+        uint256 xqtumAmt
     );
 
-    event UserClaimEvent(address user, uint256 qtumAmount, uint256 xqtumAmount);
+    event UserConvertXqtumEvent(
+        address user,
+        uint256 qtumAmt,
+        uint256 xqtumAmt
+    );
+
+    event UserClaimedEvent(address user, uint256 qtumAmt, uint256 xqtumAmt);
 
     // ---------------- Mapping definitions ----------------
 
-    mapping(address => stakingInfo) public stakingList;
+    mapping(address => mapping(uint256 => stakingInfo)) public stakingHistory;
+    mapping(address => uint256) public stakingCount;
+    mapping(address => uint256) public userTotalStakeQtum;
+    mapping(address => uint256) public userTotalXQtum;
+    mapping(address => uint256) public userTotalUnstakeQtum;
+    mapping(address => uint256) public userTotalConvertXqtum;
+    uint256 public totalStakeQtum; //Xqtum amount = totalSupply();
+    uint256 public totalUnstakeQtum;
+    uint256 public totalConvertXqtum;
 
     // ---------------- Struct definitions ----------------
 
@@ -33,16 +47,18 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
         address user;
         uint256 start;
         uint256 duration;
-        uint256 amount;
+        uint256 xqtumamount;
     }
+
     // ---------------- Variables ----------------
 
     address public immutable qtum;
-    uint256 public immutable reedemFee;
+    uint256 public immutable reedemFee1;
+    uint256 public immutable reedemFee2;
     uint256 public immutable penaltyFee;
 
-    uint256 private duration1 = 15 days;
-    uint256 private duration2 = 30 days;
+    uint256 private duration1 = 15 days; // type true
+    uint256 private duration2 = 30 days; // type false
 
     // ---------------- Constructor ----------------
 
@@ -50,64 +66,125 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
         address _qtum,
         string memory _tokenName,
         string memory _tokenSymbol,
-        uint256 _reedemFee,
+        uint256 _reedemFee1,
+        uint256 _reedemFee2,
         uint256 _penaltyFee
     ) ERC20(_tokenName, _tokenSymbol) Ownable(_msgSender()) {
         qtum = _qtum;
-        reedemFee = _reedemFee;
+        reedemFee1 = _reedemFee1;
+        reedemFee2 = _reedemFee2;
         penaltyFee = _penaltyFee;
     }
 
     // ---------------- User functions ----------------
 
-    function stake(uint256 _amount, uint8 _duration) external {
-        address user = msg.sender;
-        IERC20(qtum).transferFrom(user, address(this), _amount);
-        uint256 duration = (_duration == 1) ? duration1 : duration2;
+    function stakeQtum(uint256 _amount, bool _type) external nonReentrant {
+        require(
+            IERC20(qtum).balanceOf(msg.sender) > _amount,
+            "Your balance is low."
+        );
+        require(
+            IERC20(qtum).allowance(msg.sender, address(this)) > _amount,
+            "You should approve."
+        );
+
+        IERC20(qtum).transferFrom(msg.sender, address(this), _amount);
+
+        uint256 duration = _type ? duration1 : duration2;
         uint256 start = block.timestamp;
-        stakingList[user] = stakingInfo({
-            user: user,
+        uint256 xqtumAmt = calcXqtumAmt(_amount, _type);
+
+        userTotalStakeQtum[msg.sender] += _amount;
+        userTotalXQtum[msg.sender] += xqtumAmt;
+        totalStakeQtum += _amount;
+
+        stakingHistory[msg.sender][stakingCount[msg.sender]] = stakingInfo({
+            user: msg.sender,
             start: start,
             duration: duration,
-            amount: _amount
+            xqtumamount: xqtumAmt
         });
-        emit UserStakedEvent(user, start, duration, _amount);
+
+        stakingCount[msg.sender]++;
+
+        _mint(msg.sender, xqtumAmt);
+
+        emit UserStakedQtumEvent(
+            msg.sender,
+            start,
+            duration,
+            _amount,
+            xqtumAmt
+        );
     }
 
-    function distributeReward() external nonReentrant {
-        (uint256 qtumAmount, uint256 xqtumAmount) = calcReward(msg.sender);
-        IERC20(qtum).transfer(msg.sender, qtumAmount);
-        _mint(msg.sender, xqtumAmount);
-        delete stakingList[msg.sender];
-        emit UserClaimEvent(msg.sender, qtumAmount, xqtumAmount);
+    function calcXqtumAmt(
+        uint256 _amount,
+        bool _type
+    ) private view returns (uint256) {
+        uint256 reedemFee = _type ? reedemFee1 : reedemFee2;
+        return (_amount / 100) * (100 - reedemFee);
     }
 
-    // ---------------- view functions ----------------
+    function convertXqtum2Qtum(uint256 _index) external nonReentrant {
+        uint256 fee = (block.timestamp >
+            stakingHistory[msg.sender][_index].start +
+                stakingHistory[msg.sender][_index].duration)
+            ? 0
+            : penaltyFee;
 
-    function calcReward(
+        uint256 qtumAmt = (stakingHistory[msg.sender][_index].xqtumamount /
+            100) * (100 - fee);
+        uint256 xqtumAmt = stakingHistory[msg.sender][_index].xqtumamount;
+
+        require(
+            allowance(msg.sender, address(this)) > xqtumAmt,
+            "You should approve."
+        );
+
+        transferFrom(msg.sender, address(this), xqtumAmt);
+
+        IERC20(qtum).transfer(msg.sender, qtumAmt);
+
+        stakingHistory[msg.sender][_index] = stakingHistory[msg.sender][
+            --stakingCount[msg.sender]
+        ];
+
+        userTotalUnstakeQtum[msg.sender] += qtumAmt;
+        userTotalConvertXqtum[msg.sender] += xqtumAmt;
+        totalUnstakeQtum += qtumAmt;
+        totalConvertXqtum += xqtumAmt;
+
+        delete stakingHistory[msg.sender][stakingCount[msg.sender]];
+
+        emit UserConvertXqtumEvent(msg.sender, qtumAmt, xqtumAmt);
+    }
+
+    // ---------------- View functions ----------------
+
+    function getUserStakeHistory(
         address _user
-    ) public view returns (uint256 _qtum, uint256 _xqtum) {
-        if (
-            block.timestamp >
-            stakingList[_user].duration + stakingList[_user].start
-        ) {
-            _qtum = (stakingList[_user].amount * (100 - reedemFee)) / 100;
-            _xqtum = (stakingList[_user].amount * (100 - reedemFee)) / 100;
-        } else {
-            _qtum =
-                (stakingList[_user].amount *
-                    (block.timestamp - stakingList[_user].start) *
-                    (100 - reedemFee)) /
-                stakingList[_user].duration /
-                100;
-            _xqtum =
-                (stakingList[_user].amount *
-                    (block.timestamp - stakingList[_user].start) *
-                    (100 - reedemFee - penaltyFee)) /
-                stakingList[_user].duration /
-                100;
-        }
+    ) external view returns (stakingInfo[] memory data) {
+        uint256 count = stakingCount[_user];
+        for (uint256 index = 0; index < count; index++)
+            data[index] = stakingHistory[_user][index];
     }
 
     // ---------------- Owner functions ----------------
+
+    function withdrawQtum(uint256 _amount) external onlyOwner {
+        require(
+            IERC20(qtum).balanceOf(address(this)) > _amount,
+            "Amount should be less than balance."
+        );
+        IERC20(qtum).transfer(owner(), _amount);
+    }
+
+    function withdrawXqtum(uint256 _amount) external onlyOwner {
+        require(
+            balanceOf(address(this)) > _amount,
+            "Amount should be less than balance."
+        );
+        transfer(owner(), _amount);
+    }
 }
