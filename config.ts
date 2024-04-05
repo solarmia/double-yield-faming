@@ -10,7 +10,8 @@ export const qtumData = {
 export const xqtumData = {
     tokenName: 'TEST XQTUM',
     tokenSymbol: 'XQTUM',
-    reedemFee: 2n,
+    reedemFee1: 3n,
+    reedemFee2: 2n,
     penaltyFee: 2n
 }
 export const ninjaData = {

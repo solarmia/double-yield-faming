@@ -37,7 +37,7 @@ describe("Qtum Contract", function () {
       const user1 = signers[1]
       const buyAmount = 100000000000000000n
       const count = buyAmount / price
-      const tx = qtum.connect(user1).buy({ value: buyAmount })
+      const tx = qtum.connect(user1).buyQtum({ value: buyAmount })
       expect(tx).to.emit(qtum, 'UserBuyQtum').withArgs(user1.address, count)
       expect(tx).to.changeTokenBalance(qtum, user1, count)
     });
@@ -46,10 +46,10 @@ describe("Qtum Contract", function () {
 });
 
 describe("Xqtum Contract", function () {
-  const { tokenName, tokenSymbol, reedemFee, penaltyFee } = xqtumData
+  const { tokenName, tokenSymbol, reedemFee1,reedemFee2, penaltyFee } = xqtumData
   async function deployXQtum() {
     const Xqtum = await hre.ethers.getContractFactory("Xqtum");
-    xqtum = await Xqtum.deploy(await qtum.getAddress(), tokenName, tokenSymbol, reedemFee, penaltyFee);
+    xqtum = await Xqtum.deploy(await qtum.getAddress(), tokenName, tokenSymbol, reedemFee1,reedemFee2, penaltyFee);
 
   }
 
@@ -67,7 +67,7 @@ describe("Xqtum Contract", function () {
       const stakeAmount = 100n
 
       await qtum.connect(user1).approve(xqtum.getAddress(), stakeAmount)
-      const tx = await xqtum.connect(user1).stake(stakeAmount, 1)
+      const tx = await xqtum.connect(user1).stakeQtum(stakeAmount, 1)
       expect(tx).to.changeTokenBalances(qtum, [xqtum.getAddress(), user1.address], [stakeAmount, -stakeAmount])
     })
 
@@ -75,12 +75,12 @@ describe("Xqtum Contract", function () {
       const user1 = signers[1]
       const user2 = signers[2]
       const buyAmount = 5000000000000000000n
-      await qtum.connect(user2).buy({ value: buyAmount })
+      await qtum.connect(user2).buyQtum({ value: buyAmount })
 
       const stakeAmount = 2000n
 
       await qtum.connect(user2).approve(xqtum.getAddress(), stakeAmount)
-      await xqtum.connect(user2).stake(stakeAmount, 2)
+      await xqtum.connect(user2).stakeQtum(stakeAmount, 2)
 
       const timeControl = 86400 * 20
       await time.increase(timeControl)
@@ -88,8 +88,8 @@ describe("Xqtum Contract", function () {
       const claimableData1 = await xqtum.calcReward(user1.address)
       const claimableData2 = await xqtum.calcReward(user2.address)
 
-      const tx1 = await xqtum.connect(user1).distributeReward()
-      const tx2 = await xqtum.connect(user2).distributeReward()
+      const tx1 = await xqtum.connect(user1).claimXqtumReward()
+      const tx2 = await xqtum.connect(user2).claimXqtumReward()
 
       expect(tx1).to.changeTokenBalances(qtum, [user1.address, xqtum.getAddress()], [claimableData1[0], -claimableData1[0]])
       expect(tx1).to.changeTokenBalances(xqtum, [user1.address, xqtum.getAddress()], [claimableData1[1], -claimableData1[1]])
@@ -138,12 +138,12 @@ describe("Ninja Contract", function () {
       const user1 = signers[1]
       const user3 = signers[3]
 
-      expect(await ninja.checkNinja(user1.address)).to.equal(true)
+      expect(await ninja.check(user1.address)).to.equal(true)
 
       await ninja.connect(user1).transferFrom(user1.address, user3.address, 0)
 
-      expect(await ninja.checkNinja(user1)).to.equal(false)
-      expect(await ninja.checkNinja(user3)).to.equal(false)
+      expect(await ninja.check(user1)).to.equal(false)
+      expect(await ninja.check(user3)).to.equal(false)
     })
 
     it("Should be exact token supply", async function () {
@@ -153,7 +153,7 @@ describe("Ninja Contract", function () {
       await xqtum.connect(user2).approve(await ninja.getAddress(), ninjaData.price)
       await ninja.connect(user2).buyNinja()
 
-      expect(await ninja.checkNinja(user2.address)).to.equal(true)
+      expect(await ninja.check(user2.address)).to.equal(true)
       expect(await ninja.totalSupply()).to.equal(2)
     })
   })
