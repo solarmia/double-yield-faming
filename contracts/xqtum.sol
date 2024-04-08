@@ -80,11 +80,11 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
 
     function stakeQtum(uint256 _amount, bool _type) external nonReentrant {
         require(
-            IERC20(qtum).balanceOf(msg.sender) > _amount,
+            IERC20(qtum).balanceOf(msg.sender) >= _amount,
             "Your balance is low."
         );
         require(
-            IERC20(qtum).allowance(msg.sender, address(this)) > _amount,
+            IERC20(qtum).allowance(msg.sender, address(this)) >= _amount,
             "You should approve."
         );
 
@@ -127,25 +127,17 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
     }
 
     function convertXqtum2Qtum(uint256 _index) external nonReentrant {
-        uint256 fee = (block.timestamp >
-            stakingHistory[msg.sender][_index].start +
-                stakingHistory[msg.sender][_index].duration)
-            ? 0
-            : penaltyFee;
-
-        uint256 qtumAmt = (stakingHistory[msg.sender][_index].xqtumamount /
-            100) * (100 - fee);
+        uint256 qtumAmt = calcQtumAmt(msg.sender, _index);
         uint256 xqtumAmt = stakingHistory[msg.sender][_index].xqtumamount;
 
         require(
-            allowance(msg.sender, address(this)) > xqtumAmt,
+            allowance(msg.sender, address(this)) >= xqtumAmt,
             "You should approve."
         );
-
-        transferFrom(msg.sender, address(this), xqtumAmt);
+        IERC20(address(this)).transferFrom(msg.sender, address(this), xqtumAmt);
 
         IERC20(qtum).transfer(msg.sender, qtumAmt);
-
+        
         stakingHistory[msg.sender][_index] = stakingHistory[msg.sender][
             --stakingCount[msg.sender]
         ];
@@ -164,17 +156,37 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
 
     function getUserStakeHistory(
         address _user
-    ) external view returns (stakingInfo[] memory data) {
+    )
+        external
+        view
+        returns (stakingInfo[] memory data, uint256[] memory convertAmt)
+    {
         uint256 count = stakingCount[_user];
-        for (uint256 index = 0; index < count; index++)
+        data = new stakingInfo[](count);
+        convertAmt = new uint256[](count);
+        for (uint256 index = 0; index < count; index++) {
             data[index] = stakingHistory[_user][index];
+            convertAmt[index] = calcQtumAmt(_user, index);
+        }
+    }
+
+    function calcQtumAmt(
+        address _user,
+        uint256 _index
+    ) public view returns (uint256) {
+        uint256 fee = (block.timestamp >
+            stakingHistory[_user][_index].start +
+                stakingHistory[_user][_index].duration)
+            ? 0
+            : penaltyFee;
+        return (stakingHistory[_user][_index].xqtumamount * (100 - fee)) / 100;
     }
 
     // ---------------- Owner functions ----------------
 
     function withdrawQtum(uint256 _amount) external onlyOwner {
         require(
-            IERC20(qtum).balanceOf(address(this)) > _amount,
+            IERC20(qtum).balanceOf(address(this)) >= _amount,
             "Amount should be less than balance."
         );
         IERC20(qtum).transfer(owner(), _amount);
@@ -182,9 +194,9 @@ contract Xqtum is ERC20, Ownable, ReentrancyGuard {
 
     function withdrawXqtum(uint256 _amount) external onlyOwner {
         require(
-            balanceOf(address(this)) > _amount,
+            balanceOf(address(this)) >= _amount,
             "Amount should be less than balance."
         );
-        transfer(owner(), _amount);
+        IERC20(address(this)).transfer(owner(), _amount);
     }
 }

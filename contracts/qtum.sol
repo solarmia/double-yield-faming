@@ -28,7 +28,7 @@ contract Qtum is ERC20, Ownable, ReentrancyGuard {
 
     // ---------------- Owner functions ----------------
 
-    function mintQtum(uint256 _amount) external nonReentrant onlyOwner {
-        _mint(msg.sender, _amount);
+    function mintQtum(address _user,uint256 _amount) external nonReentrant onlyOwner {
+        _mint(_user, _amount);
     }
 }

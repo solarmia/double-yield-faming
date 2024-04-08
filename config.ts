@@ -17,5 +17,7 @@ export const ninjaData = {
     tokenName: 'TEST NINJA',
     tokenSymbol: 'NINJ',
     price: 5n,
-    baseTokenURI:''
+    claimPeriod: 6n * 3600n,
+    purchase: 1209600n,
+    baseTokenURI: ''
 }
