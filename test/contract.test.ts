@@ -1,6 +1,7 @@
 import {
   time,
   loadFixture,
+  setBalance,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
@@ -8,12 +9,13 @@ import { expect } from "chai";
 import hre from "hardhat";
 import { Ninja, Qtum, Xqtum } from "../typechain-types";
 import { ninjaData, qtumData, xqtumData } from "../config";
-import { ZeroAddress } from "ethers";
+import { MaxUint256, ZeroAddress } from "ethers";
 
 let signers: HardhatEthersSigner[]
 let qtum: Qtum
 let xqtum: Xqtum
 let ninja: Ninja
+const day = 86400
 
 describe("Qtum Contract", function () {
   const { tokenName, tokenSymbol } = qtumData
@@ -33,128 +35,183 @@ describe("Qtum Contract", function () {
   });
 
   describe("Mint Qtum", async function () {
-    it("Should buy exact amount", async function () {
-      const owner = signers[0]
+    it("Should mint exact amount", async function () {
       const user1 = signers[1]
-      const buyAmount = 100000000000000000n
-      const tx = qtum.mintQtum(buyAmount)
+      const user2 = signers[2]
+      const user3 = signers[3]
+      const buyAmount = 100000000000000000000n
+      const tx = await qtum.mintQtum(user1.address, buyAmount)
+      await qtum.mintQtum(user2.address, buyAmount)
+      await qtum.mintQtum(user3.address, buyAmount)
       expect(tx).to.changeTokenBalance(qtum, user1, buyAmount)
     });
   });
 
 });
 
-// describe("Xqtum Contract", function () {
-//   const { tokenName, tokenSymbol, reedemFee1, reedemFee2, penaltyFee } = xqtumData
-//   async function deployXQtum() {
-//     const Xqtum = await hre.ethers.getContractFactory("Xqtum");
-//     xqtum = await Xqtum.deploy(await qtum.getAddress(), tokenName, tokenSymbol, reedemFee1, reedemFee2, penaltyFee);
+describe("Xqtum Contract", function () {
+  const { tokenName, tokenSymbol, reedemFee1, reedemFee2, penaltyFee } = xqtumData
+  async function deployXQtum() {
+    const Xqtum = await hre.ethers.getContractFactory("Xqtum");
+    xqtum = await Xqtum.deploy(await qtum.getAddress(), tokenName, tokenSymbol, reedemFee1, reedemFee2, penaltyFee);
 
-//   }
+  }
 
-//   describe("Deployment", async function () {
-//     it("Should set the right params", async function () {
-//       await deployXQtum()
-//       expect(await xqtum.owner()).to.equal(signers[0].address);
-//       expect(await xqtum.qtum()).to.equal(await qtum.getAddress())
-//     });
-//   })
+  describe("Deployment", async function () {
+    it("Should set the right params", async function () {
+      await deployXQtum()
+      expect(await xqtum.owner()).to.equal(signers[0].address);
+      expect(await xqtum.qtum()).to.equal(await qtum.getAddress())
+    });
+  })
 
-//   describe("Staking", async function () {
-//     it("Should stake exact amount", async function () {
-//       const user1 = signers[1]
-//       const stakeAmount = 100n
+  describe("Staking", async function () {
+    it("Should stake exact amount", async function () {
+      const user1 = signers[1]
+      const user2 = signers[2]
+      const user3 = signers[3]
+      const stakeAmount1 = 10000n
+      const stakeAmount2 = 10000n
+      const stakeAmount3 = 10000n
 
-//       await qtum.connect(user1).approve(xqtum.getAddress(), stakeAmount)
-//       const tx = await xqtum.connect(user1).stakeQtum(stakeAmount, 1)
-//       expect(tx).to.changeTokenBalances(qtum, [xqtum.getAddress(), user1.address], [stakeAmount, -stakeAmount])
-//     })
+      await qtum.connect(user1).approve(xqtum.getAddress(), MaxUint256)
+      const tx = await xqtum.connect(user1).stakeQtum(stakeAmount1, true)
+      await qtum.connect(user2).approve(xqtum.getAddress(), MaxUint256)
+      const tx2 = await xqtum.connect(user2).stakeQtum(stakeAmount1, true)
+      await qtum.connect(user3).approve(xqtum.getAddress(), MaxUint256)
+      const tx3 = await xqtum.connect(user3).stakeQtum(stakeAmount1, true)
+      await xqtum.connect(user1).stakeQtum(stakeAmount2, true)
+      await xqtum.connect(user1).stakeQtum(stakeAmount3, true)
+      const xqtumAmt = stakeAmount1 / 100n * 97n
+      expect(tx).to.changeTokenBalances(qtum, [xqtum.getAddress(), user1.address], [stakeAmount1, -stakeAmount1])
+      expect(tx).to.changeTokenBalance(xqtum, user1.address, xqtumAmt)
+    })
 
-//     it("Should claim exact amount", async function () {
-//       const user1 = signers[1]
-//       const user2 = signers[2]
-//       const buyAmount = 5000000000000000000n
-//       await qtum.connect(user2).buyQtum({ value: buyAmount })
+    it("Should save stake history", async function () {
+      const user1 = signers[1]
 
-//       const stakeAmount = 2000n
+      const { data, convertAmt } = await xqtum.getUserStakeHistory(user1.address)
+      await xqtum.connect(user1).approve(xqtum.getAddress(), data[0].xqtumamount)
+      const tx1 = await xqtum.connect(user1).convertXqtum2Qtum(0)
 
-//       await qtum.connect(user2).approve(xqtum.getAddress(), stakeAmount)
-//       await xqtum.connect(user2).stakeQtum(stakeAmount, 2)
+      expect(tx1).to.changeTokenBalances(qtum, [xqtum.getAddress(), user1.address], [data[0].xqtumamount, data[0].xqtumamount])
+      expect(tx1).to.changeTokenBalances(xqtum, [xqtum.getAddress(), user1.address], [convertAmt[0], convertAmt[0]])
+    })
+  })
+});
 
-//       const timeControl = 86400 * 20
-//       await time.increase(timeControl)
+describe("Ninja Contract", function () {
+  async function deployNinja() {
+    const { tokenName, tokenSymbol, price, claimPeriod, purchase, baseTokenURI } = ninjaData
+    const Ninja = await hre.ethers.getContractFactory("Ninja");
+    ninja = await Ninja.deploy(tokenName, tokenSymbol, await xqtum.getAddress(), price, claimPeriod, purchase, baseTokenURI);
+  }
 
-//       const claimableData1 = await xqtum.calcReward(user1.address)
-//       const claimableData2 = await xqtum.calcReward(user2.address)
+  describe("Deployment", async function () {
+    it("Should set the right params", async function () {
+      await deployNinja()
+      expect(await ninja.xqtum()).to.equal(await xqtum.getAddress())
+    });
+  })
 
-//       const tx1 = await xqtum.connect(user1).claimXqtumReward()
-//       const tx2 = await xqtum.connect(user2).claimXqtumReward()
+  describe("Owner actions", async function () {
+    it("Should deposit exact fund", async function () {
+      const owner = signers[0]
+      await ninja.connect(owner).depositFunds({ value: ninjaData.purchase })
+    });
+  })
 
-//       expect(tx1).to.changeTokenBalances(qtum, [user1.address, xqtum.getAddress()], [claimableData1[0], -claimableData1[0]])
-//       expect(tx1).to.changeTokenBalances(xqtum, [user1.address, xqtum.getAddress()], [claimableData1[1], -claimableData1[1]])
+  describe("Buy nft", async function () {
+    it("Should buy nft", async function () {
+      const user1 = signers[1]
+      await xqtum.connect(user1).approve(await ninja.getAddress(), ninjaData.price)
+      const tx1 = await ninja.connect(user1).buyNinja()
+      const user2 = signers[2]
+      await xqtum.connect(user2).approve(await ninja.getAddress(), ninjaData.price)
+      const tx2 = await ninja.connect(user2).buyNinja()
+      const user3 = signers[3]
+      await xqtum.connect(user3).approve(await ninja.getAddress(), ninjaData.price)
+      const tx3 = await ninja.connect(user3).buyNinja()
+      expect(tx1).to.emit(ninja, "UserBuyNinja").withArgs(user1.address, 0)
+    });
+  })
 
-//       expect(tx2).to.changeTokenBalances(qtum, [user2.address, xqtum.getAddress()], [claimableData2[0], -claimableData2[0]])
-//       expect(tx2).to.changeTokenBalances(xqtum, [user2.address, xqtum.getAddress()], [claimableData2[1], -claimableData2[1]])
-//     })
+  describe("Deposit xqtum", async function () {
+    it("Should deposit xqtum", async function () {
+      const user1 = signers[1]
+      const user2 = signers[2]
+      const user3 = signers[3]
+      const depositAmt1 = 100n
+      const depositAmt2 = 100n
+      const depositAmt3 = 200n
+      await xqtum.connect(user1).approve(await ninja.getAddress(), depositAmt1)
+      const now = await time.latest()
+      await time.increaseTo(Math.ceil(now / 21600) * 21600)
+      await ninja.connect(user1).depositXqtum(depositAmt1)
+      await time.increase(day)
+      console.log(1, await ninja.calcReward(user1.address))
+      await time.increase(day)
+      console.log(2, await ninja.calcReward(user1.address))
+      await xqtum.connect(user2).approve(await ninja.getAddress(), depositAmt2)
+      await ninja.connect(user2).depositXqtum(depositAmt2)
+      await time.increase(day)
+      console.log(3, await ninja.calcReward(user1.address))
+      console.log(3, await ninja.calcReward(user2.address))
+      await xqtum.connect(user3).approve(await ninja.getAddress(), depositAmt3)
+      await ninja.connect(user3).depositXqtum(depositAmt3)
+      await time.increase(day)
+      console.log(4, await ninja.calcReward(user1.address))
+      console.log(4, await ninja.calcReward(user2.address))
+      console.log(4, await ninja.calcReward(user3.address))
+      await xqtum.connect(user1).approve(await ninja.getAddress(), depositAmt1)
+      await ninja.connect(user1).depositXqtum(depositAmt1)
+      console.log(4.5, await ninja.calcReward(user1.address))
+      console.log(4.5, await ninja.calcReward(user2.address))
+      console.log(4.5, await ninja.calcReward(user3.address))
+      await time.increase(day)
+      console.log(5, await ninja.calcReward(user1.address))
+      console.log(5, await ninja.calcReward(user2.address))
+      console.log(5, await ninja.calcReward(user3.address))
+    });
+  })
 
-//     it("Should initialize status", async function () {
-//       const user2 = signers[2]
-//       const result = await xqtum.calcReward(user2.address)
-//       expect(result[0]).to.equal(0n)
-//       expect(result[1]).to.equal(0n)
-//     })
-//   })
-// });
+  describe("Claim reward", async function () {
+    it("Should claim exact amount", async function () {
+      const user1 = signers[1]
+      const user2 = signers[2]
+      const user3 = signers[3]
+      await ninja.connect(user1).claimReward()
+      console.log(5.5, await ninja.calcReward(user1.address))
+      console.log(5.5, await ninja.calcReward(user2.address))
+      console.log(5.5, await ninja.calcReward(user3.address))
+      await time.increase(day)
+      console.log(6, await ninja.calcReward(user1.address))
+      console.log(6, await ninja.calcReward(user2.address))
+      console.log(6, await ninja.calcReward(user3.address))
+      console.log(6.55, await ninja.totalRate())
+    });
+  })
 
-// describe("Ninja Contract", function () {
-//   async function deployNinja() {
-//     const { tokenName, tokenSymbol, price, baseTokenURI } = ninjaData
-//     const Ninja = await hre.ethers.getContractFactory("Ninja");
-//     ninja = await Ninja.deploy(tokenName, tokenSymbol, await xqtum.getAddress(), price, baseTokenURI);
-//   }
+  describe("Withdraw xqtum", async function () {
+    it("Should withdraw xqtum", async function () {
+      const user1 = signers[1]
+      const user2 = signers[2]
+      const user3 = signers[3]
+      await ninja.connect(user1).withdrawXqtum()
+      console.log(6.5, await ninja.calcReward(user1.address))
+      console.log(6.5, await ninja.calcReward(user2.address))
+      console.log(6.5, await ninja.calcReward(user3.address))
+      console.log(6.55, await ninja.totalRate())
+      await time.increase(day)
+      console.log(7, await ninja.calcReward(user1.address))
+      console.log(7, await ninja.calcReward(user2.address))
+      console.log(7, await ninja.calcReward(user3.address))
+      await time.increase(day)
+      console.log(8, await ninja.calcReward(user1.address))
+      console.log(8, await ninja.calcReward(user2.address))
+      console.log(8, await ninja.calcReward(user3.address))
+    });
+  })
 
-//   describe("Deployment", async function () {
-//     it("Should set the right params", async function () {
-//       await deployNinja()
-//       expect(await ninja.xqtum()).to.equal(await xqtum.getAddress())
-//     });
-//   })
-
-//   describe("Buying", async function () {
-//     it("Should buy ninja nft", async function () {
-//       const user1 = signers[1]
-
-//       await xqtum.connect(user1).approve(await ninja.getAddress(), ninjaData.price)
-
-//       const tx1 = await ninja.connect(user1).buyNinja()
-//       expect(tx1).to.emit(ninja, "UserBuyNinja").withArgs(user1.address)
-//       expect(tx1).to.changeTokenBalance(ninja, user1.address, 1)
-//     })
-//   })
-
-//   describe("User checking", async function () {
-//     it("Should buy and be holder", async function () {
-//       const user1 = signers[1]
-//       const user3 = signers[3]
-
-//       expect(await ninja.check(user1.address)).to.equal(true)
-
-//       await ninja.connect(user1).transferFrom(user1.address, user3.address, 0)
-
-//       expect(await ninja.check(user1)).to.equal(false)
-//       expect(await ninja.check(user3)).to.equal(false)
-//     })
-
-//     it("Should be exact token supply", async function () {
-//       const user1 = signers[1]
-//       const user2 = signers[2]
-//       expect(await ninja.totalSupply()).to.equal(1)
-//       await xqtum.connect(user2).approve(await ninja.getAddress(), ninjaData.price)
-//       await ninja.connect(user2).buyNinja()
-
-//       expect(await ninja.check(user2.address)).to.equal(true)
-//       expect(await ninja.totalSupply()).to.equal(2)
-//     })
-//   })
-// });
+});
 

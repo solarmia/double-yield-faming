@@ -94,9 +94,10 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     function depositXqtum(uint256 _amount) external nonReentrant onlyHolder {
         require(_amount > 0, "Can't deposit zero balance");
+        uint256 _now = block.timestamp;
+        console.log("now", _now);
         require(
-            block.timestamp - userStakingHistory[msg.sender].lastUpdate >=
-                claimPeriod,
+            _now - userStakingHistory[msg.sender].lastUpdate >= claimPeriod,
             "Need more time to deposit."
         );
         require(
@@ -105,9 +106,21 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
         );
 
         uint256 originDeposit = userStakingHistory[msg.sender].deposit;
-        depositUpdate();
+        updatePool();
 
-        if (originDeposit == 0) {
+        if (originDeposit > 0) {
+            // uint256 pending = (userStakingHistory[msg.sender].deposit *
+            //     totalRate) - userStakingHistory[msg.sender].debt;
+            // if (pending > 0) {
+            //     distributed += pending;
+            //     payable(msg.sender).transfer(pending);
+            // }
+            uint256 pendingDebt = originDeposit * totalRate;
+            if (pendingDebt > 0) {
+                // userStakingHistory[msg.sender].debt += pendingDebt;
+            }
+            // userStakingHistory[msg.sender].lastUpdate = _now;
+        } else {
             totalStakers += 1;
             uint256 tokenId = tokenOfOwnerByIndex(msg.sender, 0);
             transferFrom(msg.sender, address(this), tokenId);
@@ -122,38 +135,7 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
             .deposit - originDeposit) * totalRate);
     }
 
-    function claimReward() external onlyHolder {
-        uint256 claimAmt = calcReward(msg.sender);
-        payable(msg.sender).transfer(claimAmt);
-        userStakingHistory[msg.sender].debt += claimAmt;
-    }
-
-    function withdrawXqtum() external onlyHolder {
-        require(
-            userStakingHistory[msg.sender].deposit > 0,
-            "You have no withdrawable amount"
-        );
-        uint256 originDeposit = userStakingHistory[msg.sender].deposit;
-        IERC20(xqtum).transfer(
-            msg.sender,
-            userStakingHistory[msg.sender].deposit
-        );
-        _transfer(
-            address(this),
-            msg.sender,
-            userStakingHistory[msg.sender].tokenId
-        );
-        withdrawUpdate();
-        userStakingHistory[msg.sender].deposit = 0;
-        userStakingHistory[msg.sender].tokenId = 0;
-        userStakingHistory[msg.sender].lastUpdate = 0;
-        userStakingHistory[msg.sender].debt = 0;
-        totalDeposit -= originDeposit;
-    }
-
-    // ---------------- Private functions ----------------
-
-    function depositUpdate() private {
+    function updatePool() public {
         if (block.timestamp <= lastRewardTime) {
             return;
         }
@@ -162,16 +144,14 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
             lastRewardTime = block.timestamp;
             return;
         }
+        console.log("block.timestamp", block.timestamp);
         uint256 timestamp = (block.timestamp / claimPeriod) * claimPeriod;
-        uint256 multiplier = getMultiplier(lastRewardTime, timestamp);
-        totalRate = totalRate + (multiplier / totalDeposit);
-        lastRewardTime = timestamp;
-    }
+        // uint256 timestamp = block.timestamp;
 
-    function withdrawUpdate() private {
-        uint256 timestamp = (block.timestamp / claimPeriod) * claimPeriod;
         uint256 multiplier = getMultiplier(lastRewardTime, timestamp);
+        console.log("totalRate", totalRate);
         totalRate = totalRate + ((multiplier) / totalDeposit);
+        console.log("totalRate", totalRate);
         lastRewardTime = timestamp;
     }
 
@@ -181,6 +161,7 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 _from,
         uint256 _to
     ) public view returns (uint256) {
+        console.log("getMultiplier", _to - _from);
         return (_to - _from) * rewardMultiplier;
     }
 
@@ -195,13 +176,27 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
         return address(this).balance;
     }
 
-    function calcReward(address _user) public view returns (uint256) {
+    function calcReward(address _user) external view returns (uint256) {
+        console.log("totalDeposit", totalDeposit);
         uint256 accPerShare = totalRate;
+        console.log("accPerShare", accPerShare);
         uint256 timestamp = (block.timestamp / claimPeriod) * claimPeriod;
         if (timestamp > lastRewardTime && totalDeposit != 0) {
+            console.log("here");
+            console.log(lastRewardTime, timestamp);
             uint256 multiplier = getMultiplier(lastRewardTime, timestamp);
+            console.log("accPerShare", accPerShare);
+            console.log("multiplier", multiplier);
+            console.log("totalDeposit", totalDeposit);
             accPerShare = accPerShare + (multiplier) / totalDeposit;
+            console.log("accPerShare", accPerShare);
         }
+        console.log(
+            "deposit-accPerShare",
+            userStakingHistory[_user].deposit,
+            accPerShare,
+            userStakingHistory[_user].debt
+        );
         uint256 etherReward = (userStakingHistory[_user].deposit *
             accPerShare) - userStakingHistory[_user].debt;
 
@@ -219,6 +214,7 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
         );
         require(purchaseAmt == msg.value, "Invalid amount");
         rewardMultiplier = purchaseAmt / 2 weeks;
+        console.log("rewardMultiplier", rewardMultiplier);
         depositTime = block.timestamp;
         emit OwnerDepositFunds(purchaseAmt);
     }
