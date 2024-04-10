@@ -143,7 +143,7 @@ contract Ninja is ERC721Enumerable, Ownable, ReentrancyGuard {
             msg.sender,
             userStakingHistory[msg.sender].tokenId
         );
-        withdrawUpdate();
+        depositUpdate();
         userStakingHistory[msg.sender].deposit = 0;
         userStakingHistory[msg.sender].tokenId = 0;
         userStakingHistory[msg.sender].lastUpdate = 0;
