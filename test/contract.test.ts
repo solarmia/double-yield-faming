@@ -149,29 +149,16 @@ describe("Ninja Contract", function () {
       await time.increaseTo(Math.ceil(now / 21600) * 21600)
       await ninja.connect(user1).depositXqtum(depositAmt1)
       await time.increase(day)
-      console.log(1, await ninja.calcReward(user1.address))
       await time.increase(day)
-      console.log(2, await ninja.calcReward(user1.address))
       await xqtum.connect(user2).approve(await ninja.getAddress(), depositAmt2)
       await ninja.connect(user2).depositXqtum(depositAmt2)
       await time.increase(day)
-      console.log(3, await ninja.calcReward(user1.address))
-      console.log(3, await ninja.calcReward(user2.address))
       await xqtum.connect(user3).approve(await ninja.getAddress(), depositAmt3)
       await ninja.connect(user3).depositXqtum(depositAmt3)
       await time.increase(day)
-      console.log(4, await ninja.calcReward(user1.address))
-      console.log(4, await ninja.calcReward(user2.address))
-      console.log(4, await ninja.calcReward(user3.address))
       await xqtum.connect(user1).approve(await ninja.getAddress(), depositAmt1)
       await ninja.connect(user1).depositXqtum(depositAmt1)
-      console.log(4.5, await ninja.calcReward(user1.address))
-      console.log(4.5, await ninja.calcReward(user2.address))
-      console.log(4.5, await ninja.calcReward(user3.address))
       await time.increase(day)
-      console.log(5, await ninja.calcReward(user1.address))
-      console.log(5, await ninja.calcReward(user2.address))
-      console.log(5, await ninja.calcReward(user3.address))
     });
   })
 
@@ -181,14 +168,7 @@ describe("Ninja Contract", function () {
       const user2 = signers[2]
       const user3 = signers[3]
       await ninja.connect(user1).claimReward()
-      console.log(5.5, await ninja.calcReward(user1.address))
-      console.log(5.5, await ninja.calcReward(user2.address))
-      console.log(5.5, await ninja.calcReward(user3.address))
       await time.increase(day)
-      console.log(6, await ninja.calcReward(user1.address))
-      console.log(6, await ninja.calcReward(user2.address))
-      console.log(6, await ninja.calcReward(user3.address))
-      console.log(6.55, await ninja.totalRate())
     });
   })
 
@@ -198,18 +178,8 @@ describe("Ninja Contract", function () {
       const user2 = signers[2]
       const user3 = signers[3]
       await ninja.connect(user1).withdrawXqtum()
-      console.log(6.5, await ninja.calcReward(user1.address))
-      console.log(6.5, await ninja.calcReward(user2.address))
-      console.log(6.5, await ninja.calcReward(user3.address))
-      console.log(6.55, await ninja.totalRate())
       await time.increase(day)
-      console.log(7, await ninja.calcReward(user1.address))
-      console.log(7, await ninja.calcReward(user2.address))
-      console.log(7, await ninja.calcReward(user3.address))
       await time.increase(day)
-      console.log(8, await ninja.calcReward(user1.address))
-      console.log(8, await ninja.calcReward(user2.address))
-      console.log(8, await ninja.calcReward(user3.address))
     });
   })
 
